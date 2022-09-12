@@ -28,6 +28,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* List of processes SLEEPING */
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -110,6 +113,9 @@ thread_init (void) {
 	list_init (&ready_list);
 	list_init (&destruction_req);
 
+	/* Project 1 */
+	list_init (&sleep_list);
+
 	/* Set up a thread structure for the running thread. */
 	initial_thread = running_thread ();
 	init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -131,6 +137,47 @@ thread_start (void) {
 
 	/* Wait for the idle thread to initialize idle_thread. */
 	sema_down (&idle_started);
+}
+
+/* Compare two threads' wake_time */
+static bool
+earlier_wake_time (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread* check_A = list_entry (a, struct thread, elem);
+  struct thread* check_B = list_entry (b, struct thread, elem);
+  
+  return check_A->wake_time < check_B->wake_time;
+}
+
+/* Make a thread sleep */
+/* Similar to thread_yield, but not busy-waiting */
+void
+thread_sleep(int64_t ticks){
+	struct thread* curr = thread_current();
+	enum intr_level old_level;
+
+	ASSERT (!intr_context ());
+	
+	old_level = intr_disable();
+	if (curr != idle_thread){
+		curr->wake_time = ticks; // set wake_time (when to wake the thread)
+		list_insert_ordered(&sleep_list, &curr->elem, earlier_wake_time, NULL); // sort sleep_list in order with wake_time
+		thread_block(); // make the status of the thread 'BLOCKED', after push it to sleep list
+	}
+	intr_set_level(old_level);
+}
+
+/* Make a thread wake */
+void
+thread_wake(int64_t now){ // 'now' is the absolute time
+	struct list_elem* temp = list_begin(&sleep_list); // check from the first element of the sleep list
+
+	while (!list_empty(&sleep_list)){ // while the sleep_list is NOT empty
+		struct thread* wake_thread = list_entry(temp, struct thread, elem); // get the first thread
+		if (wake_thread->wake_time <= now) { // check if it is time to wake or not
+			temp = list_remove(temp); // remove the thread from sleep_list
+			thread_unblock(wake_thread); // then unblock it to push back to ready_list and change the status into THREAD_READY
+		} else break;
+	}
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -224,6 +271,14 @@ thread_block (void) {
 	schedule ();
 }
 
+static bool
+more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread* check_A = list_entry (a, struct thread, elem);
+  struct thread* check_B = list_entry (b, struct thread, elem);
+  
+  return check_A->priority > check_B->priority;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -240,7 +295,7 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	list_insert_ordered(&ready_list, &t->elem, more_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
 }
@@ -303,7 +358,7 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered(&ready_list, &curr->elem, more_priority, NULL); // sort ready_list in order with priority
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
