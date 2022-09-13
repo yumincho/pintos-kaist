@@ -94,7 +94,7 @@ struct thread {
 
 	/* Project 1 */
 	int wake_time;						/* Checking time for waking up the thread */
-
+	int 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
