@@ -94,7 +94,10 @@ struct thread {
 
 	/* Project 1 */
 	int wake_time;						/* Checking time for waking up the thread */
-
+	int priority_init;
+	struct list donation_list;
+	struct list_elem delem;
+	struct lock *lock_wanted;
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
@@ -129,6 +132,12 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+
+/*Project 1*/
+void thread_current_priority_compare (void);
+void thread_list_renew(void);
+bool more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool more_priority_d (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
