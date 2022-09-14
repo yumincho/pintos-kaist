@@ -254,7 +254,16 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
-	/* If its priority is NOT the highest, yield it. */
+	thread_current_priority_compare();
+
+	return tid;
+}
+
+/* Compare the priority of current thread and the first thread in ready_list.
+if the current's priority is NOT the highest, yield it. */
+
+void
+thread_current_priority_compare (void) {
 	if (!list_empty(&ready_list)){
 		struct thread* curr = thread_current();
 		struct list_elem* temp = list_begin(&ready_list);
@@ -263,9 +272,8 @@ thread_create (const char *name, int priority,
 			thread_yield();
 		}
 	}
-
-	return tid;
 }
+
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -281,6 +289,7 @@ thread_block (void) {
 	schedule ();
 }
 
+/* helper function to compare two threads' priority*/
 static bool
 more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
   struct thread* check_A = list_entry (a, struct thread, elem);

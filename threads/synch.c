@@ -66,6 +66,9 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
+		// Priority Donation
+		// before put current thread into waiters, add the priority of it to current holder
+
 		list_push_back (&sema->waiters, &thread_current ()->elem);
 		thread_block ();
 	}
@@ -98,10 +101,6 @@ sema_try_down (struct semaphore *sema) {
 	return success;
 }
 
-/* Up or "V" operation on a semaphore.  Increments SEMA's value
-   and wakes up one thread of those waiting for SEMA, if any.
-
-   This function may be called from an interrupt handler. */
 void
 sema_up (struct semaphore *sema) {
 	enum intr_level old_level;
@@ -109,12 +108,59 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters))
-		thread_unblock (list_entry (list_pop_front (&sema->waiters),
-					struct thread, elem));
+
+	struct list_elem* temp = list_begin(&sema->waiters);
+	int most_priority = -1;
+	struct thread* unblock_thread;
+
+	if (!list_empty (&sema->waiters)){
+		// unblock the thread with the highest priority
+		struct thread* check_thread = list_entry(temp, struct thread, elem);
+		// check all waiting thread to find the highest priority
+		// check when sema_up, because due to the priority donation, priority can change anytime
+		while(temp != list_end(&sema->waiters)){
+			if (check_thread->priority > most_priority){
+				most_priority = check_thread->priority;
+				unblock_thread = check_thread;
+			}
+			temp = temp->next;
+		}
+		// we did temp->next once again right before while loop is done, so we should remove temp->prev
+		temp = list_remove(temp->prev);
+		thread_unblock (unblock_thread);
+	}
 	sema->value++;
+
+	/* if the unblocked thread has the higher priority than current thread,
+	the current thread should yield. */
+	thread_current_priority_compare();
+	
 	intr_set_level (old_level);
 }
+
+
+// /* Up or "V" operation on a semaphore.  Increments SEMA's value
+//    and wakes up one thread of those waiting for SEMA, if any.
+
+//    This function may be called from an interrupt handler. */
+// void
+// sema_up (struct semaphore *sema) {
+// 	enum intr_level old_level;
+
+// 	ASSERT (sema != NULL);
+
+// 	old_level = intr_disable ();
+// 	if (!list_empty (&sema->waiters))
+// 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
+// 					struct thread, elem));
+// 	sema->value++;
+
+// 	/* if the first thread in ready_list has the higher priority,
+// 	the current thread should yield. */
+// 	thread_current_priority_compare();
+	
+// 	intr_set_level (old_level);
+// }
 
 static void sema_test_helper (void *sema_);
 
