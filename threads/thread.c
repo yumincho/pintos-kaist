@@ -298,6 +298,14 @@ more_priority (const struct list_elem *a, const struct list_elem *b, void *aux U
   return check_A->priority > check_B->priority;
 }
 
+bool
+more_priority_d (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
+  struct thread* check_A = list_entry (a, struct thread, delem);
+  struct thread* check_B = list_entry (b, struct thread, delem);
+  
+  return check_A->priority > check_B->priority;
+}
+
 /* list sorting */
 void
 thread_list_renew (void) {
@@ -400,14 +408,15 @@ void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
 
-	if (!list_empty(&ready_list)){
+	/*if (!list_empty(&ready_list)){
 		struct thread* curr = thread_current();
 		struct list_elem* temp = list_begin(&ready_list);
 		struct thread* check_thread = list_entry(temp, struct thread, elem);
 		if (curr->priority < check_thread->priority) {
 			thread_yield();
 		}
-	}
+	}*/
+	thread_current_priority_compare();
 }
 
 /* Returns the current thread's priority. */

@@ -250,11 +250,12 @@ lock_acquire (struct lock *lock) {
 				temphold = temp;
 			}
 		}
-		list_insert_ordered(&hold->donation_list, &require->delem, more_priority, NULL);
+		list_insert_ordered(&hold->donation_list, &require->delem, more_priority_d, NULL);
 	}
 	thread_list_renew();
 	sema_down (&lock->semaphore); // operate with sema_down, so don't need to adjust
 	lock->holder = thread_current ();
+	require->lock_wanted = NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -286,7 +287,6 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
-	ASSERT (!intr_context ());
 
 	struct thread* hold = lock->holder;
 	hold->priority = hold->priority_init;
