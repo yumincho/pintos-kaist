@@ -232,10 +232,27 @@ lock_acquire (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
-
 	// Priority Donation
 	// before put current thread into waiters, add the priority of it to current holder
-
+	// Who's holding the lock????
+	struct thread* hold = lock->holder;
+	struct thread* temphold = lock->holder;
+	struct thread* require = thread_current();
+	require->lock_wanted = lock;
+	if (hold!=NULL && require!=NULL) { //error once...
+		hold->priority = require->priority;
+		for (int i = 0; i<8; i++) {
+			if(temphold->lock_wanted == NULL)
+				break;
+			struct thread* temp = temphold->lock_wanted->holder;
+			if (temp!=NULL) {
+				temp->priority = require->priority;
+				temphold = temp;
+			}
+		}
+		list_insert_ordered(&hold->donation_list, &require->delem, more_priority, NULL);
+	}
+	thread_list_renew();
 	sema_down (&lock->semaphore); // operate with sema_down, so don't need to adjust
 	lock->holder = thread_current ();
 }
@@ -269,7 +286,30 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (!intr_context ());
 
+	struct thread* hold = lock->holder;
+	hold->priority = hold->priority_init;
+	if(!list_empty(&hold->donation_list)) {
+		struct list_elem* e;
+		struct list_elem* newhold;
+		for (e = list_begin (&hold->donation_list); e != list_end (&hold->donation_list); e = list_next (&hold->donation_list)) {
+			struct thread* temp = list_entry(e, struct thread, delem);
+			if (temp->lock_wanted == lock) {
+				temp->lock_wanted = NULL;
+				newhold = list_remove(&temp->delem); //using delem because of here
+				break;
+			}
+		}
+		if(!list_empty(&hold->donation_list)) {
+			struct list_elem* front = list_begin(&hold->donation_list);
+			struct thread* max = list_entry(front, struct thread, delem);
+			if (hold->priority < max->priority)
+				hold->priority = max->priority;
+		}//if donation_list is empty, return to initial priority
+	}
+
+	thread_list_renew();
 	lock->holder = NULL;
 	sema_up (&lock->semaphore); // operate with sema_up, so don't need to adjust
 }

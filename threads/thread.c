@@ -290,12 +290,19 @@ thread_block (void) {
 }
 
 /* helper function to compare two threads' priority*/
-static bool
+bool
 more_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
   struct thread* check_A = list_entry (a, struct thread, elem);
   struct thread* check_B = list_entry (b, struct thread, elem);
   
   return check_A->priority > check_B->priority;
+}
+
+/* list sorting */
+void
+thread_list_renew (void) {
+	if(!list_empty(&ready_list))
+		list_sort(&ready_list, more_priority, NULL);
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -497,6 +504,9 @@ init_thread (struct thread *t, const char *name, int priority) {
 	strlcpy (t->name, name, sizeof t->name);
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
+	t->priority_init = priority;
+	list_init(&t->donation_list);
+	t->lock_wanted = NULL;
 	t->magic = THREAD_MAGIC;
 }
 

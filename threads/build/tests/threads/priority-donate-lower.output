@@ -1,0 +1,18 @@
+Kernel command line: -q run priority-donate-lower
+0 ~ 9fc00 1
+100000 ~ 13e0000 1
+Pintos booting with: 
+	base_mem: 0x0 ~ 0x9fc00 (Usable: 639 kB)
+	ext_mem: 0x100000 ~ 0x13e0000 (Usable: 19,328 kB)
+Calibrating timer...  106,291,200 loops/s.
+Boot complete.
+Executing 'priority-donate-lower':
+(priority-donate-lower) begin
+Kernel PANIC at ../../tests/threads/priority-donate-lower.c:24 in test_priority_donate_lower(): assertion `thread_get_priority () == PRI_DEFAULT' failed.
+Call stack: 0x80042139af 0x8004218e66 0x8004216deb 0x8004206636 0x8004206783 0x8004206120.
+The `backtrace' program can make call stacks useful.
+Read "Backtraces" in the "Debugging Tools" chapter
+of the Pintos documentation for more information.
+Timer: 46 ticks
+Thread: 0 idle ticks, 46 kernel ticks, 0 user ticks
+Console: 
