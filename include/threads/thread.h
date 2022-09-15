@@ -94,9 +94,12 @@ struct thread {
 
 	/* Project 1 */
 	int wake_time;						/* Checking time for waking up the thread */
+	int nice_value;						/* Nice Value from -20 to 20 */
+	int recent_cpu;						/* Recent CPU, can be negative */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	struct list_elem elem_tl;			/* List element for thread list only. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -124,11 +127,22 @@ void thread_sleep (int64_t ticks);
 // bool time_earlier (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void thread_wake (int64_t ticks);
 
+/* Updating for Project 1 */
+
+int add_xn(int x, int n);
+
+void increment_recent_cpu(void);
+void update_priority(void);
+void update_recent_cpu(void);
+void update_load_avg(void);
+
 void thread_tick (void);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+
+void thread_current_priority_compare (void);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
