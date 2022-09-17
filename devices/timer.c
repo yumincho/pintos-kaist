@@ -16,15 +16,9 @@
 #if TIMER_FREQ > 1000
 #error TIMER_FREQ <= 1000 recommended
 #endif
-
-// /* List of processes SLEEPING */
-static struct list sleep_list;
-
+ 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
-
-/* Idle thread. */
-static struct thread *idle_thread;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -134,8 +128,24 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_wake(ticks); // check whether we need to wake the threads up or not
 	thread_tick ();
+	thread_wake(ticks); // check whether we need to wake the threads up or not
+
+	enum intr_level old_level;
+	old_level = intr_disable ();
+
+	if (thread_mlfqs) {
+		increment_recent_cpu();
+
+		if (timer_ticks() % 4 == 0) {
+			update_priority();
+		}
+		if (timer_ticks() % TIMER_FREQ == 0){
+			update_recent_cpu();
+			update_load_avg();
+		}
+	}
+	intr_set_level (old_level);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

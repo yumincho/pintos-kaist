@@ -98,8 +98,12 @@ struct thread {
 	struct list donation_list;
 	struct list_elem delem;
 	struct lock *lock_wanted;
+	int nice_value;						/* Nice Value from -20 to 20 */
+	int recent_cpu;						/* Recent CPU, can be negative */
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
+	struct list_elem elem_tl;			/* List element for thread list only. */
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -126,6 +130,15 @@ void thread_start (void);
 void thread_sleep (int64_t ticks);
 // bool time_earlier (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 void thread_wake (int64_t ticks);
+
+/* Updating for Project 1 */
+
+int add_xn(int x, int n);
+
+void increment_recent_cpu(void);
+void update_priority(void);
+void update_recent_cpu(void);
+void update_load_avg(void);
 
 void thread_tick (void);
 void thread_print_stats (void);
