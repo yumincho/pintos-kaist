@@ -63,11 +63,14 @@ sema_down (struct semaphore *sema) {
 
 	ASSERT (sema != NULL);
 	ASSERT (!intr_context ());
-
+	sema_list_renew(&sema->waiters);
 	old_level = intr_disable ();
 	while (sema->value == 0) {
-		list_push_back (&sema->waiters, &thread_current ()->elem);
-		thread_block ();
+		/*list_push_back (&sema->waiters, &thread_current ()->elem);
+		thread_block ();*/
+
+		list_insert_ordered (&sema->waiters, &thread_current()->elem, more_priority, NULL);
+		thread_block();
 	}
 	sema->value--;
 	intr_set_level (old_level);
@@ -106,13 +109,14 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 
+	sema_list_renew(&sema->waiters);
+
 	if (!list_empty (&sema->waiters)){
-		struct list_elem* temp = list_begin(&sema->waiters);
+		/*struct list_elem* temp = list_begin(&sema->waiters);
 		int max_priority = -1;
 		struct thread* unblock_thread;
 		struct list_elem* remove_temp;
 		struct thread* check_thread;
-
 		// unblock the thread with the highest priority
 		// check all waiting thread to find the highest priority
 		// check when sema_up, because due to the priority donation, priority can change anytime
@@ -126,7 +130,11 @@ sema_up (struct semaphore *sema) {
 			temp = temp->next;
 		}
 		temp = list_remove(remove_temp);
-		thread_unblock (unblock_thread);
+		thread_unblock (unblock_thread);*/
+		
+		struct list_elem* remove_temp = list_pop_front(&sema->waiters);
+		struct thread* unblock_thread = list_entry(remove_temp, struct thread, elem);
+		thread_unblock(unblock_thread);
 	}
 	sema->value++;
 
@@ -163,6 +171,17 @@ sema_up (struct semaphore *sema) {
 
 static void sema_test_helper (void *sema_);
 
+void
+sema_list_renew (struct list *list) {
+	if(!list_empty(list))
+		list_sort(list, more_priority, NULL);
+}
+
+void
+sema_list_renew_d (struct list *list) {
+	if(!list_empty(list))
+		list_sort(list, more_priority_d, NULL);
+}
 /* Self-test for semaphores that makes control "ping-pong"
    between a pair of threads.  Insert calls to printf() to see
    what's going on. */
@@ -238,23 +257,26 @@ lock_acquire (struct lock *lock) {
 	struct thread* hold = lock->holder;
 	struct thread* temphold = lock->holder;
 	struct thread* require = thread_current();
-	require->lock_wanted = lock;
 	if (hold!=NULL && require!=NULL) { //error once...
+		require->lock_wanted = lock; //얘를 안으로 넣었더니 작동했어!
 		hold->priority = require->priority;
 		for (int i = 0; i<8; i++) {
 			if(temphold->lock_wanted == NULL)
 				break;
-			struct thread* temp = temphold->lock_wanted->holder;
-			if (temp!=NULL) {
-				temp->priority = require->priority;
-				temphold = temp;
+			else {
+				struct thread* temp = temphold->lock_wanted->holder;
+				if (temp!=NULL) {
+					if (temp->priority < require->priority)
+						temp->priority = require->priority;
+					temphold = temp;
+				}
 			}
 		}
 		list_insert_ordered(&hold->donation_list, &require->delem, more_priority_d, NULL);
 	}
 	thread_list_renew();
 	sema_down (&lock->semaphore); // operate with sema_down, so don't need to adjust
-	lock->holder = thread_current ();
+	lock->holder = thread_current();
 	require->lock_wanted = NULL;
 }
 
@@ -292,15 +314,22 @@ lock_release (struct lock *lock) {
 	hold->priority = hold->priority_init;
 	if(!list_empty(&hold->donation_list)) {
 		struct list_elem* e;
-		struct list_elem* newhold;
-		for (e = list_begin (&hold->donation_list); e != list_end (&hold->donation_list); e = list_next (&hold->donation_list)) {
+		//struct list_elem* newhold;
+		/*if (list_size(&hold->donation_list)==1) {
+			e = list_begin(&hold->donation_list);
+			struct thread* tempp = list_entry(e, struct thread, delem);
+			list_remove(&tempp->delem);
+			tempp->lock_wanted = NULL;
+		}*/
+		for (e = list_begin (&hold->donation_list); e != list_end (&hold->donation_list); e = list_next (e)) {
 			struct thread* temp = list_entry(e, struct thread, delem);
 			if (temp->lock_wanted == lock) {
 				temp->lock_wanted = NULL;
-				newhold = list_remove(&temp->delem); //using delem because of here
-				break;
+				//newhold = list_remove(&temp->delem); //using delem because of here
+				list_remove(&temp->delem);
 			}
 		}
+		//hold->priority = hold->priority_init;
 		if(!list_empty(&hold->donation_list)) {
 			struct list_elem* front = list_begin(&hold->donation_list);
 			struct thread* max = list_entry(front, struct thread, delem);
@@ -308,7 +337,6 @@ lock_release (struct lock *lock) {
 				hold->priority = max->priority;
 		}//if donation_list is empty, return to initial priority
 	}
-
 	thread_list_renew();
 	lock->holder = NULL;
 	sema_up (&lock->semaphore); // operate with sema_up, so don't need to adjust
@@ -370,7 +398,7 @@ cond_wait (struct condition *cond, struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	sema_init (&waiter.semaphore, 0);
-	list_push_back (&cond->waiters, &waiter.elem);
+	list_insert_ordered (&cond->waiters, &waiter.elem, more_priority, 0);
 	lock_release (lock);
 	sema_down (&waiter.semaphore);
 	lock_acquire (lock);

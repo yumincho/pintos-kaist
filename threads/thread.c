@@ -407,7 +407,6 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
-
 	/*if (!list_empty(&ready_list)){
 		struct thread* curr = thread_current();
 		struct list_elem* temp = list_begin(&ready_list);
