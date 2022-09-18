@@ -72,6 +72,7 @@ sema_down (struct semaphore *sema) {
 		list_insert_ordered (&sema->waiters, &thread_current()->elem, more_priority, NULL);
 		thread_block();
 	}
+	//sema_list_renew(&sema->waiters);
 	sema->value--;
 	intr_set_level (old_level);
 }
@@ -131,7 +132,6 @@ sema_up (struct semaphore *sema) {
 		}
 		temp = list_remove(remove_temp);
 		thread_unblock (unblock_thread);*/
-		
 		struct list_elem* remove_temp = list_pop_front(&sema->waiters);
 		struct thread* unblock_thread = list_entry(remove_temp, struct thread, elem);
 		thread_unblock(unblock_thread);
@@ -141,7 +141,7 @@ sema_up (struct semaphore *sema) {
 	/* if the unblocked thread has the higher priority than current thread,
 	the current thread should yield. */
 	thread_current_priority_compare();
-	
+	//sema_list_renew(&sema->waiters);
 	intr_set_level (old_level);
 }
 
@@ -258,7 +258,7 @@ lock_acquire (struct lock *lock) {
 	struct thread* temphold = lock->holder;
 	struct thread* require = thread_current();
 	if (hold!=NULL && require!=NULL) { //error once...
-		require->lock_wanted = lock; //얘를 안으로 넣었더니 작동했어!
+		require->lock_wanted = lock; //worked when putting it into te IF condition
 		hold->priority = require->priority;
 		for (int i = 0; i<8; i++) {
 			if(temphold->lock_wanted == NULL)
@@ -274,7 +274,7 @@ lock_acquire (struct lock *lock) {
 		}
 		list_insert_ordered(&hold->donation_list, &require->delem, more_priority_d, NULL);
 	}
-	thread_list_renew();
+	//thread_list_renew();
 	sema_down (&lock->semaphore); // operate with sema_down, so don't need to adjust
 	lock->holder = thread_current();
 	require->lock_wanted = NULL;
@@ -311,7 +311,7 @@ lock_release (struct lock *lock) {
 	ASSERT (lock_held_by_current_thread (lock));
 
 	struct thread* hold = lock->holder;
-	hold->priority = hold->priority_init;
+	//hold->priority = hold->priority_init;
 	if(!list_empty(&hold->donation_list)) {
 		struct list_elem* e;
 		//struct list_elem* newhold;
@@ -329,7 +329,7 @@ lock_release (struct lock *lock) {
 				list_remove(&temp->delem);
 			}
 		}
-		//hold->priority = hold->priority_init;
+		hold->priority = hold->priority_init;//changed this and sema/preempt/fifo did work
 		if(!list_empty(&hold->donation_list)) {
 			struct list_elem* front = list_begin(&hold->donation_list);
 			struct thread* max = list_entry(front, struct thread, delem);
@@ -444,6 +444,7 @@ sema_get_highest_priority(struct semaphore *sema) {
 			temp = temp->next;
 		}
 	}
+	//sema_list_renew(&sema->waiters);
 	intr_set_level (old_level);
 	return max_priority;
 }
@@ -477,7 +478,6 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 		temp = list_remove(remove_temp);
 		sema_up(&up_semaphore->semaphore);
 	}
-
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by

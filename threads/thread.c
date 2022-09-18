@@ -548,26 +548,30 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-<<<<<<< HEAD
-	thread_current ()->priority = new_priority;
-	/*if (!list_empty(&ready_list)){
-		struct thread* curr = thread_current();
-		struct list_elem* temp = list_begin(&ready_list);
-		struct thread* check_thread = list_entry(temp, struct thread, elem);
-		if (curr->priority < check_thread->priority) {
-			thread_yield();
-		}
-	}*/
-	thread_current_priority_compare();
-=======
 	if (!thread_mlfqs) {
-		thread_current ()->priority = new_priority;
-
+		//thread_current ()->priority = new_priority;
+		struct thread* curr = thread_current();
+		curr->priority_init = new_priority;//need to change initial priority!!!
+		/*if (!list_empty(&ready_list)){
+			struct thread* curr = thread_current();
+			struct list_elem* temp = list_begin(&ready_list);
+			struct thread* check_thread = list_entry(temp, struct thread, elem);
+			if (curr->priority < check_thread->priority) {
+				thread_yield();
+			}
+		}*/
 		/* if the first thread in ready_list has the higher priority,
 		the current thread should yield. */
+		curr->priority = curr->priority_init;//changed this and sema/preempt/fifo did work
+		if(!list_empty(&curr->donation_list)) {
+			struct list_elem* front = list_begin(&curr->donation_list);
+			struct thread* max = list_entry(front, struct thread, delem);
+			if (curr->priority < max->priority)
+				curr->priority = max->priority;
+		}//if donation_list is empty, return to initial priority
+		//need to check once more...pass condvar & donate-chain!
 		thread_current_priority_compare();
 	}
->>>>>>> origin/yumin
 }
 
 /* Returns the current thread's priority. */
