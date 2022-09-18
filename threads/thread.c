@@ -184,12 +184,16 @@ void
 thread_wake(int64_t now){ // 'now' is the absolute time
 	struct list_elem* temp = list_begin(&sleep_list); // check from the first element of the sleep list
 
-	while (!list_empty(&sleep_list)){ // while the sleep_list is NOT empty
+	while (/*emp!=list_end(&sleep_list)*/!list_empty(&sleep_list)){ // while the sleep_list is NOT empty
 		struct thread* wake_thread = list_entry(temp, struct thread, elem); // get the first thread
 		if (wake_thread->wake_time <= now) { // check if it is time to wake or not
 			temp = list_remove(temp); // remove the thread from sleep_list
 			thread_unblock(wake_thread); // then unblock it to push back to ready_list and change the status into THREAD_READY
-		} else break;
+		} 
+		else {
+			//temp = list_next(temp);
+			break;
+		}
 	}
 }
 
@@ -275,6 +279,7 @@ update_priority(void){
 			}
 			// update_thread->priority = PRI_MAX - (update_thread->recent_cpu)/4 - (update_thread->nice_value*2);
 			update_thread->priority = x_to_int_nearest(add_xn(add_xn(div_xn(update_thread->recent_cpu, -4), PRI_MAX), (update_thread->nice_value*2*(-1))));
+			// update_thread->priority = x_to_int_zero(add_xn(div_xn(update_thread->recent_cpu, -4), PRI_MAX - update_thread->nice_value*2));
 			temp = temp->next;
 		}
 	}
@@ -590,6 +595,8 @@ thread_set_nice (int nice UNUSED) {
 	struct thread* temp = thread_current();
 	temp->nice_value = nice;
 	temp->priority = add_xn(add_xn(div_xn(temp->recent_cpu, -4), PRI_MAX), (temp->nice_value*2*(-1)));
+	// update_thread->priority = x_to_int_nearest(add_xn(add_xn(div_xn(update_thread->recent_cpu, -4), PRI_MAX), (update_thread->nice_value*2*(-1))));
+	// temp->priority = x_to_int_zero(add_xn(div_xn(temp->recent_cpu, -4), PRI_MAX - temp->nice_value*2));
 
 	thread_current_priority_compare();
 
