@@ -274,7 +274,11 @@ update_priority(void){
 				continue;
 			}
 			// update_thread->priority = PRI_MAX - (update_thread->recent_cpu)/4 - (update_thread->nice_value*2);
-			update_thread->priority = x_to_int_nearest(add_xn(add_xn(div_xn(update_thread->recent_cpu, -4), PRI_MAX), (update_thread->nice_value*2*(-1))));
+			int new_priority = x_to_int_nearest(add_xn(add_xn(div_xn(update_thread->recent_cpu, -4), PRI_MAX), (update_thread->nice_value*2*(-1))));
+			if (new_priority>PRI_MAX) update_thread->priority = PRI_MAX;
+			else if (new_priority<PRI_MIN) update_thread->priority = PRI_MIN;
+			else update_thread->priority = new_priority;
+			// update_thread->priority = x_to_int_nearest(add_xn(add_xn(div_xn(update_thread->recent_cpu, -4), PRI_MAX), (update_thread->nice_value*2*(-1))));
 			temp = temp->next;
 		}
 	}
@@ -404,6 +408,9 @@ thread_create (const char *name, int priority,
 if the current's priority is NOT the highest, yield it. */
 void
 thread_current_priority_compare (void) {
+	enum intr_level old_level;
+	old_level = intr_disable ();
+
 	if (!list_empty(&ready_list)){
 		struct thread* curr = thread_current();
 		struct list_elem* temp = list_begin(&ready_list);
@@ -412,6 +419,8 @@ thread_current_priority_compare (void) {
 			thread_yield();
 		}
 	}
+
+	intr_set_level (old_level);
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -555,9 +564,14 @@ thread_set_nice (int nice UNUSED) {
 	enum intr_level old_level;
 	old_level = intr_disable ();
 
-	struct thread* temp = thread_current();
-	temp->nice_value = nice;
-	temp->priority = add_xn(add_xn(div_xn(temp->recent_cpu, -4), PRI_MAX), (temp->nice_value*2*(-1)));
+	thread_current()->nice_value = nice;
+	
+	int new_priority = x_to_int_nearest(add_xn(add_xn(div_xn(thread_current()->recent_cpu, -4), PRI_MAX), (nice*(-2))));
+
+	if (new_priority>PRI_MAX) thread_current()->priority = PRI_MAX;
+	else if (new_priority<PRI_MIN) thread_current()->priority = PRI_MIN;
+	else thread_current()->priority = new_priority;
+	// temp->priority = add_xn(add_xn(div_xn(temp->recent_cpu, -4), PRI_MAX), (temp->nice_value*2*(-1)));
 
 	thread_current_priority_compare();
 
